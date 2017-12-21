@@ -80,8 +80,8 @@ class grafanaDashboard:
         orgurl=self.argvs.grafanaurl+self.orgapi
         jsondata=self.connect_grafana(orgurl).json()
         for data in jsondata:
-            if (not self.org_dic.has_key(data['name'])):
-                self.org_dic[data['name']]=data['id']
+            if (not self.org_dic.has_key(data['name'].encode("utf-8"))):
+                self.org_dic[data['name'].encode("utf-8")]=data['id']
 
     def list_organizations(self):
         for org in self.org_dic.keys():
@@ -122,7 +122,7 @@ class grafanaDashboard:
                     print "Organization {0} has no dashboard defined.".format(org)
                 else:
                     for dashboard in self.dashboarddic[org]:
-                        print dashboard['title']
+                        print dashboard['title'].encode("utf-8")
                 
         else:
             print "********************"
@@ -132,7 +132,7 @@ class grafanaDashboard:
                 print "Organization {0} has no dashboard defined.".format(org_name)
             else:
                 for dashboard in self.dashboarddic[org_name]:
-                    print dashboard['title']
+                    print dashboard['title'].encode("utf-8")
 
     def change_current_org(self,orgid):
         change_org_url=self.argvs.grafanaurl+self.changeorgapi+str(orgid)
@@ -229,8 +229,8 @@ if __name__ == '__main__':
         gd.get_organizations()
 
         # get all dashboards for all organizations
-        for org in gd.org_dic.keys():
-            gd.change_current_org(gd.org_dic[org])
+        for org,orgid in gd.org_dic.iteritems():
+            gd.change_current_org(orgid)
             gd.get_dashboards(org)
 
         if gd.argvs.list_orgs == True: 
@@ -240,12 +240,30 @@ if __name__ == '__main__':
             if gd.argvs.orgname =='':
                 gd.list_dashboards()
             else:
-                gd.list_dashboards(org_name=gd.argvs.orgname)
+                org_name = gd.argvs.orgname 
+                gd.list_dashboards(org_name)
 
         elif gd.argvs.backup == True:
             print "Backup started..."
-            for org in gd.org_dic.keys():
-                gd.change_current_org(gd.org_dic[org])
+            if gd.argvs.orgname == "":
+                for org,orgid in gd.org_dic.iteritems():
+                    gd.change_current_org(orgid)
+
+                    # if org. has no dashboards defined
+                    if len(gd.dashboarddic[org]) ==0:
+                        if gd.argvs.verbose == True:
+                            print "Organisation {0} has no dashboards defined!".format(org)
+                    else:
+
+                        for dashboard in gd.dashboarddic[org]:
+                            org_name=str(org).lower()
+                            dashboard_name="-".join(map(str,str(dashboard['title'].encode("utf-8")).lower().replace("/","-").replace("-"," ").split()))
+                            dashboard_settings = gd.get_dashboard_settings(dashboard['uri'])
+                            gd.save_dashboards_settings(org_name,dashboard_name,dashboard_settings)
+            else:
+                org = gd.argvs.orgname
+                orgid = gd.org_dic[org]
+                gd.change_current_org(orgid)
 
                 # if org. has no dashboards defined
                 if len(gd.dashboarddic[org]) ==0:
@@ -255,9 +273,10 @@ if __name__ == '__main__':
 
                     for dashboard in gd.dashboarddic[org]:
                         org_name=str(org).lower()
-                        dashboard_name="-".join(map(str,str(dashboard['title']).lower().replace("/","-").replace("-"," ").split()))
+                        dashboard_name="-".join(map(str,str(dashboard['title'].encode("utf-8")).lower().replace("/","-").replace("-"," ").split()))
                         dashboard_settings = gd.get_dashboard_settings(dashboard['uri'])
                         gd.save_dashboards_settings(org_name,dashboard_name,dashboard_settings)
+
             print "Backup ended."
 
         elif gd.argvs.restore == True:
